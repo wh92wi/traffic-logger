@@ -4,7 +4,7 @@ import os
 import datetime
 
 # --- Konfiguration ---
-API_KEY  = 0XZMFOdQbXs852mYYkrINgnDgOB_CElRc8sG0Qa3WPU
+API_KEY  = os.environ["HERE_API_KEY"]
 LAT      = 53.552785   # Deine Koordinate
 LON      = 10.058144   # Deine Koordinate
 CSV_FILE = "traffic_log.csv"
