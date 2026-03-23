@@ -1,4 +1,4 @@
-ame: Traffic Data Collector
+name: Traffic Data Collector
 
 on:
   schedule:
