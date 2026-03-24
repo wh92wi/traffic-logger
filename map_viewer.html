@@ -302,7 +302,7 @@ function renderJSON(data) {
         opacity: 0.85
       }).addTo(map);
 
-      // Mittelunkt der Linie für Label
+      // Mittelpunkt der Linie für Label
       const mid = latlngs[Math.floor(latlngs.length / 2)];
 
       const labelIcon = L.divIcon({
@@ -323,6 +323,41 @@ function renderJSON(data) {
       });
 
       const marker = L.marker(mid, { icon: labelIcon, interactive: false }).addTo(map);
+
+      // Richtungspfeil: letzten zwei Punkte nehmen für den Winkel
+      if (latlngs.length >= 2) {
+        const p1 = latlngs[latlngs.length - 2];
+        const p2 = latlngs[latlngs.length - 1];
+
+        // Winkel in Grad berechnen (Norden = 0°, im Uhrzeigersinn)
+        const dy = p2[0] - p1[0]; // lat-Differenz
+        const dx = p2[1] - p1[1]; // lng-Differenz
+        const angleDeg = Math.atan2(dx, dy) * (180 / Math.PI);
+
+        const arrowIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width: 0;
+            height: 0;
+            transform: rotate(${angleDeg}deg);
+            transform-origin: center center;
+            pointer-events: none;
+          ">
+            <svg width="18" height="18" viewBox="0 0 18 18" style="overflow:visible;display:block;">
+              <polygon points="9,0 16,16 9,11 2,16"
+                fill="${color}"
+                stroke="#0f1117"
+                stroke-width="1.5"
+                opacity="0.95"/>
+            </svg>
+          </div>`,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        });
+
+        const arrowMarker = L.marker(p2, { icon: arrowIcon, interactive: false }).addTo(map);
+        allMarkers.push(arrowMarker);
+      }
 
       // Tooltip beim Hover auf die Linie
       polyline.bindTooltip(
