@@ -1,6 +1,6 @@
 - Abgreifen der korrekten Segmente für die jamFactors über die Routing API
   - Definition der Strecke über Routing API (inklusive Richtung nach Möglichkeit)
-  - Übertragung dieser Strecke in locations.csv
+  - Übertragung dieser Strecke in locations.csv, mit Angabe einer annotation
   - Darstellung aller Streckenabschnitte in locations.csv in Karte
 - automatische grafische Darstellung des jamFactors für einen bestimmten Streckenabschnitt als Wochenzeitdiagramm
   - Achse Montag 0 Uhr bis Sonntag 24 Uhr lokaler Zeit
