@@ -1,2 +1,2 @@
-name,lat,lon
-Diagonalstraße Messung 1,53.552950,10.058086
+street_name,position_id,annotation,lat,lon
+Diagonalstraße,1,Höhe Hausnummer 18-26,53.552898,10.058115
