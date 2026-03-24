@@ -5,7 +5,7 @@ import datetime
 import math
 
 API_KEY  = os.environ["HERE_API_KEY"]
-CSV_FILE = "traffic_log2.csv"
+CSV_FILE = "traffic_log-v2.csv"
 LOCATIONS_FILE = "locations.csv"
 
 def distance(lat1, lon1, lat2, lon2):
