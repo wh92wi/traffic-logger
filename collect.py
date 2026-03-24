@@ -84,7 +84,7 @@ def collect():
                 r.raise_for_status()
                 results = r.json().get("results", [])
 
-                for radius in [50, 100, 200]:
+                for radius in [50, 100, 200, 350, 500]:
                     if results:
                         break
                     params["in"] = f"circle:{loc['lat']},{loc['lon']};r={radius}"
