@@ -13,17 +13,32 @@ LOCAL_TZ       = zoneinfo.ZoneInfo("Europe/Berlin")
 def distance(lat1, lon1, lat2, lon2):
     return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
-def nearest_segment(results, lat, lon):
-    best = None
-    best_dist = float("inf")
-    for segment in results:
+def nearest_segment(results, lat, lon, street_name):
+    """
+    Filtert zuerst nach Straßenname (HERE description).
+    Unter den Treffern wird das nächstgelegene und kürzeste Segment gewählt.
+    Falls kein Treffer mit passendem Namen: Warnung + Fallback auf alle Segmente.
+    """
+    def score(segment):
         links = segment["location"]["shape"]["links"]
         point = links[0]["points"][0]
-        d = distance(lat, lon, point["lat"], point["lng"])
-        if d < best_dist:
-            best_dist = d
-            best = segment
-    return best
+        dist  = distance(lat, lon, point["lat"], point["lng"])
+        length = segment["location"].get("length", 9999)
+        # Kombination aus Distanz und Länge – kürzere Segmente bevorzugt
+        return dist * 1000 + length
+
+    # Normalisiert vergleichen (Groß-/Kleinschreibung ignorieren)
+    matching = [
+        s for s in results
+        if s["location"].get("description", "").strip().lower()
+        == street_name.strip().lower()
+    ]
+
+    if matching:
+        return min(matching, key=score), True
+    else:
+        # Kein Segment mit passendem Namen gefunden
+        return min(results, key=score), False
 
 def get_segment_endpoints(segment):
     links = segment["location"]["shape"]["links"]
@@ -36,9 +51,10 @@ def load_locations():
     with open(LOCATIONS_FILE, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             locations.append({
-                "name": row["name"],
-                "lat":  float(row["lat"]),
-                "lon":  float(row["lon"])
+                "street_name": row["street_name"],
+                "position_id": row["position_id"],
+                "lat":         float(row["lat"]),
+                "lon":         float(row["lon"])
             })
     return locations
 
@@ -51,7 +67,8 @@ def collect():
         if not file_exists:
             writer.writerow([
                 "timestamp_utc", "timestamp_local",
-                "my_name", "here_name",
+                "street_name", "position_id", "here_name",
+                "name_matched",
                 "segment_length_m",
                 "seg_start_lat", "seg_start_lon",
                 "seg_end_lat", "seg_end_lon",
@@ -80,13 +97,15 @@ def collect():
                     results = r.json().get("results", [])
 
                 if not results:
-                    print(f"Keine Daten für {loc['name']}")
+                    print(f"Keine Daten für {loc['street_name']} #{loc['position_id']}")
                     continue
 
                 now_utc   = datetime.datetime.now(datetime.timezone.utc)
                 now_local = now_utc.astimezone(LOCAL_TZ)
 
-                segment     = nearest_segment(results, loc["lat"], loc["lon"])
+                segment, matched = nearest_segment(
+                    results, loc["lat"], loc["lon"], loc["street_name"]
+                )
                 currentFlow = segment["currentFlow"]
                 first, last = get_segment_endpoints(segment)
 
@@ -99,11 +118,17 @@ def collect():
                 jamTendency    = currentFlow.get("jamTendency", "")
                 confidence     = currentFlow["confidence"]
 
+                if not matched:
+                    print(f"WARNUNG: Kein Segment '{loc['street_name']}' gefunden – "
+                          f"Fallback auf '{here_name}'")
+
                 writer.writerow([
                     now_utc.isoformat(),
                     now_local.isoformat(),
-                    loc["name"],
+                    loc["street_name"],
+                    loc["position_id"],
                     here_name,
+                    matched,
                     segment_length,
                     first["lat"], first["lng"],
                     last["lat"],  last["lng"],
@@ -114,9 +139,11 @@ def collect():
                     jamTendency,
                     round(confidence, 2),
                 ])
-                print(f"{loc['name']} ({here_name}): jam={jamFactor}, speed={speed}")
+                print(f"{loc['street_name']} #{loc['position_id']} "
+                      f"({here_name}, {segment_length}m, matched={matched}): "
+                      f"jam={jamFactor}, speed={speed}")
 
             except Exception as e:
-                print(f"Fehler bei {loc['name']}: {e}")
+                print(f"Fehler bei {loc['street_name']} #{loc['position_id']}: {e}")
 
 collect()
