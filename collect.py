@@ -13,32 +13,29 @@ LOCAL_TZ       = zoneinfo.ZoneInfo("Europe/Berlin")
 def distance(lat1, lon1, lat2, lon2):
     return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
-def nearest_segment(results, lat, lon, street_name):
+def nearest_matching_segment(results, lat, lon, street_name):
     """
-    Filtert zuerst nach Straßenname (HERE description).
-    Unter den Treffern wird das nächstgelegene und kürzeste Segment gewählt.
-    Falls kein Treffer mit passendem Namen: Warnung + Fallback auf alle Segmente.
+    Gibt das nächstgelegene und kürzeste Segment zurück,
+    dessen HERE-Name exakt mit street_name übereinstimmt.
+    Gibt None zurück wenn kein passendes Segment gefunden wird.
     """
-    def score(segment):
-        links = segment["location"]["shape"]["links"]
-        point = links[0]["points"][0]
-        dist  = distance(lat, lon, point["lat"], point["lng"])
-        length = segment["location"].get("length", 9999)
-        # Kombination aus Distanz und Länge – kürzere Segmente bevorzugt
-        return dist * 1000 + length
-
-    # Normalisiert vergleichen (Groß-/Kleinschreibung ignorieren)
     matching = [
         s for s in results
         if s["location"].get("description", "").strip().lower()
         == street_name.strip().lower()
     ]
 
-    if matching:
-        return min(matching, key=score), True
-    else:
-        # Kein Segment mit passendem Namen gefunden
-        return min(results, key=score), False
+    if not matching:
+        return None
+
+    def score(segment):
+        links  = segment["location"]["shape"]["links"]
+        point  = links[0]["points"][0]
+        dist   = distance(lat, lon, point["lat"], point["lng"])
+        length = segment["location"].get("length", 9999)
+        return dist * 1000 + length
+
+    return min(matching, key=score)
 
 def get_segment_endpoints(segment):
     links = segment["location"]["shape"]["links"]
@@ -68,7 +65,6 @@ def collect():
             writer.writerow([
                 "timestamp_utc", "timestamp_local",
                 "street_name", "position_id", "here_name",
-                "name_matched",
                 "segment_length_m",
                 "seg_start_lat", "seg_start_lon",
                 "seg_end_lat", "seg_end_lon",
@@ -97,15 +93,26 @@ def collect():
                     results = r.json().get("results", [])
 
                 if not results:
-                    print(f"Keine Daten für {loc['street_name']} #{loc['position_id']}")
+                    print(f"WARNUNG: Keine Segmente in der Nähe von "
+                          f"{loc['street_name']} #{loc['position_id']}")
+                    continue
+
+                segment = nearest_matching_segment(
+                    results, loc["lat"], loc["lon"], loc["street_name"]
+                )
+
+                if segment is None:
+                    available = list({
+                        s["location"].get("description", "")
+                        for s in results
+                    })
+                    print(f"WARNUNG: Kein Segment '{loc['street_name']}' gefunden. "
+                          f"Verfügbare Straßen: {available}")
                     continue
 
                 now_utc   = datetime.datetime.now(datetime.timezone.utc)
                 now_local = now_utc.astimezone(LOCAL_TZ)
 
-                segment, matched = nearest_segment(
-                    results, loc["lat"], loc["lon"], loc["street_name"]
-                )
                 currentFlow = segment["currentFlow"]
                 first, last = get_segment_endpoints(segment)
 
@@ -118,17 +125,12 @@ def collect():
                 jamTendency    = currentFlow.get("jamTendency", "")
                 confidence     = currentFlow["confidence"]
 
-                if not matched:
-                    print(f"WARNUNG: Kein Segment '{loc['street_name']}' gefunden – "
-                          f"Fallback auf '{here_name}'")
-
                 writer.writerow([
                     now_utc.isoformat(),
                     now_local.isoformat(),
                     loc["street_name"],
                     loc["position_id"],
                     here_name,
-                    matched,
                     segment_length,
                     first["lat"], first["lng"],
                     last["lat"],  last["lng"],
@@ -140,7 +142,7 @@ def collect():
                     round(confidence, 2),
                 ])
                 print(f"{loc['street_name']} #{loc['position_id']} "
-                      f"({here_name}, {segment_length}m, matched={matched}): "
+                      f"({here_name}, {segment_length}m): "
                       f"jam={jamFactor}, speed={speed}")
 
             except Exception as e:
