@@ -23,6 +23,13 @@ def nearest_segment(results, lat, lon):
             best = segment
     return best
 
+def get_segment_endpoints(segment):
+    """Gibt den ersten und letzten Punkt des gesamten Segments zurück"""
+    links  = segment["location"]["shape"]["links"]
+    first  = links[0]["points"][0]
+    last   = links[-1]["points"][-1]
+    return first, last
+
 def load_locations():
     locations = []
     with open(LOCATIONS_FILE, newline="", encoding="utf-8") as f:
@@ -42,7 +49,10 @@ def collect():
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow([
-                "timestamp", "name",
+                "timestamp", "my_name", "here_name",
+                "segment_length_m",
+                "seg_start_lat", "seg_start_lon",
+                "seg_end_lat", "seg_end_lon",
                 "freeFlow", "speed", "speedUncapped",
                 "jamFactor", "jamTendency", "confidence"
             ])
@@ -73,17 +83,24 @@ def collect():
 
                 segment     = nearest_segment(results, loc["lat"], loc["lon"])
                 currentFlow = segment["currentFlow"]
+                first, last = get_segment_endpoints(segment)
 
-                freeFlow      = currentFlow["freeFlow"]
-                speed         = currentFlow["speed"]
-                speedUncapped = currentFlow["speedUncapped"]
-                jamFactor     = currentFlow["jamFactor"]
-                jamTendency   = currentFlow.get("jamTendency", "") # optional, leer wenn nicht vorhanden
-                confidence    = currentFlow["confidence"]
+                here_name      = segment["location"].get("description", "")
+                segment_length = segment["location"].get("length", "")
+                freeFlow       = currentFlow["freeFlow"]
+                speed          = currentFlow["speed"]
+                speedUncapped  = currentFlow["speedUncapped"]
+                jamFactor      = currentFlow["jamFactor"]
+                jamTendency    = currentFlow.get("jamTendency", "")
+                confidence     = currentFlow["confidence"]
 
                 writer.writerow([
-                    datetime.datetime.utcnow().isoformat(),
+                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     loc["name"],
+                    here_name,
+                    segment_length,
+                    first["lat"], first["lng"],
+                    last["lat"],  last["lng"],
                     round(freeFlow, 1),
                     round(speed, 1),
                     round(speedUncapped, 1),
@@ -91,7 +108,7 @@ def collect():
                     jamTendency,
                     round(confidence, 2),
                 ])
-                print(f"{loc['name']}: jam={jamFactor}, speed={speed}")
+                print(f"{loc['name']} ({here_name}, {segment_length}m): jam={jamFactor}, speed={speed}")
 
             except Exception as e:
                 print(f"Fehler bei {loc['name']}: {e}")
