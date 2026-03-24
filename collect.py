@@ -50,6 +50,7 @@ def load_locations():
             locations.append({
                 "street_name": row["street_name"],
                 "position_id": row["position_id"],
+                "annotation":  row.get("annotation", ""),
                 "lat":         float(row["lat"]),
                 "lon":         float(row["lon"])
             })
@@ -64,7 +65,7 @@ def collect():
         if not file_exists:
             writer.writerow([
                 "timestamp_utc", "timestamp_local",
-                "street_name", "position_id", "here_name",
+                "street_name", "position_id", "annotation", "here_name",
                 "segment_length_m",
                 "seg_start_lat", "seg_start_lon",
                 "seg_end_lat", "seg_end_lon",
@@ -130,6 +131,7 @@ def collect():
                     now_local.isoformat(),
                     loc["street_name"],
                     loc["position_id"],
+                    loc["annotation"],
                     here_name,
                     segment_length,
                     first["lat"], first["lng"],
@@ -141,7 +143,7 @@ def collect():
                     jamTendency,
                     round(confidence, 2),
                 ])
-                print(f"{loc['street_name']} #{loc['position_id']} "
+                print(f"{loc['street_name']} #{loc['position_id']} ({loc['annotation']}) "
                       f"({here_name}, {segment_length}m): "
                       f"jam={jamFactor}, speed={speed}")
 
