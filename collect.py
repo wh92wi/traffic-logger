@@ -4,16 +4,14 @@ import os
 import datetime
 import math
 
-API_KEY  = os.environ["HERE_API_KEY"]
-CSV_FILE = "traffic_log-v2.csv"
+API_KEY        = os.environ["HERE_API_KEY"]
+CSV_FILE       = "traffic_log-v2.csv"
 LOCATIONS_FILE = "locations.csv"
 
 def distance(lat1, lon1, lat2, lon2):
-    """Einfache euklidische Näherung für kurze Distanzen"""
     return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
 def nearest_segment(results, lat, lon):
-    """Gibt das Segment zurück, dessen erster Punkt am nächsten liegt"""
     best = None
     best_dist = float("inf")
     for segment in results:
@@ -37,16 +35,16 @@ def load_locations():
     return locations
 
 def collect():
-    locations = load_locations()
-
+    locations   = load_locations()
     file_exists = os.path.exists(CSV_FILE)
+
     with open(CSV_FILE, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow([
                 "timestamp", "name",
-                "jam_factor", "speed_current",
-                "speed_freeflow", "color"
+                "freeFlow", "speed", "speedUncapped",
+                "jamFactor", "jamTendency", "confidence"
             ])
 
         for loc in locations:
@@ -61,7 +59,6 @@ def collect():
                 r.raise_for_status()
                 results = r.json().get("results", [])
 
-                # Falls r=20 nichts liefert, Radius schrittweise vergrößern
                 for radius in [50, 100, 200]:
                     if results:
                         break
@@ -74,27 +71,27 @@ def collect():
                     print(f"Keine Daten für {loc['name']}")
                     continue
 
-                segment       = nearest_segment(results, loc["lat"], loc["lon"])
-                currentFlow   = segment["currentFlow"]
-                freeFlow      = flow["freeFlow"]
-                speed         = flow["speed"]
-                speedUncapped = flow["speedUncapped"]
-                jamFactor     = flow["jamFactor"]
-                jamTendency   = flow["jamTendency"]
-                confidence     = flow["confidence"]
+                segment     = nearest_segment(results, loc["lat"], loc["lon"])
+                currentFlow = segment["currentFlow"]
+
+                freeFlow      = currentFlow["freeFlow"]
+                speed         = currentFlow["speed"]
+                speedUncapped = currentFlow["speedUncapped"]
+                jamFactor     = currentFlow["jamFactor"]
+                jamTendency   = currentFlow.get("jamTendency", "") # optional, leer wenn nicht vorhanden
+                confidence    = currentFlow["confidence"]
 
                 writer.writerow([
                     datetime.datetime.utcnow().isoformat(),
                     loc["name"],
-                    round(currentFlow, 1),
                     round(freeFlow, 1),
                     round(speed, 1),
                     round(speedUncapped, 1),
                     round(jamFactor, 2),
-                    round(jamTendency, 2),
+                    jamTendency,
                     round(confidence, 2),
                 ])
-                print(f"{loc['name']}: jam={jamFactor}, {speed}")
+                print(f"{loc['name']}: jam={jamFactor}, speed={speed}")
 
             except Exception as e:
                 print(f"Fehler bei {loc['name']}: {e}")
