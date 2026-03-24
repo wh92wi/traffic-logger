@@ -6,3 +6,6 @@
 - Kopiere die JSON-Datei aus der Zwischenablage hinein
 - Suche dir den am besten passenden Abschnitt aus
 - Übertrage die Koordinaten und weitere Angaben in die locations.csv
+
+### HERE Maps
+Dokumentation der Traffic API: https://www.here.com/docs/bundle/traffic-api-developer-guide-v7/page/README.html
