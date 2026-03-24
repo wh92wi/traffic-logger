@@ -1,2 +1,0 @@
-timestamp_utc,timestamp_local,street_name,position_id,annotation,here_name,segment_length_m,seg_start_lat,seg_start_lon,seg_end_lat,seg_end_lon,freeFlow,speed,speedUncapped,jamFactor,jamTendency,confidence
-2026-03-24T17:47:51.322769+00:00,2026-03-24T18:47:51.322769+01:00,Hammer Landstraße,1,Diagonalstraße Höhe Hausnummer 32,Hammer Landstraße,447.0,53.55097,10.05885,53.55491,10.05749,10.0,5.8,5.8,3.8,,0.99
