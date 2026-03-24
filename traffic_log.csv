@@ -41,3 +41,9 @@ timestamp,street,jam_factor,speed_current,speed_freeflow,color
 2026-03-24T05:21:05.158656,Diagonalstraße,0.6,11.1,11.9,grün
 2026-03-24T05:21:05.158680,Hammer Landstraße,1.1,7.8,9.7,grün
 2026-03-24T05:21:05.158688,Eiffestraße,0.0,10.6,10.0,grün
+2026-03-24T06:18:16.715318,Diagonalstraße,1.6,10.3,12.2,grün
+2026-03-24T06:18:16.715363,Wichernsweg,2.4,9.2,12.5,grün
+2026-03-24T06:18:16.715382,Borstelmannsweg,1.1,11.1,12.5,grün
+2026-03-24T06:18:16.715395,Diagonalstraße,1.5,10.0,11.9,grün
+2026-03-24T06:18:16.715413,Hammer Landstraße,3.2,5.6,9.7,gelb
+2026-03-24T06:18:16.715427,Eiffestraße,1.9,6.9,10.0,grün
