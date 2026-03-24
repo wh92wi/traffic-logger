@@ -1,1 +1,1 @@
-timestamp_utc, timestamp_local, street_name, position_id, here_name, name_matched, segment_length_m, seg_start_lat, seg_start_lon, seg_end_lat, seg_end_lon, freeFlow, speed, speedUncapped, jamFactor, jamTendency, confidence
+timestamp_utc, timestamp_local, street_name, position_id, here_name, segment_length_m, seg_start_lat, seg_start_lon, seg_end_lat, seg_end_lon, freeFlow, speed, speedUncapped, jamFactor, jamTendency, confidence
