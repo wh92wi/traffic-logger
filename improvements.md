@@ -1,0 +1,11 @@
+- Abgreifen der korrekten Segmente für die jamFactors über die Routing API
+  - Definition der Strecke über Routing API (inklusive Richtung nach Möglichkeit)
+  - Übertragung dieser Strecke in locations.csv
+  - Darstellung aller Streckenabschnitte in locations.csv in Karte
+- automatische grafische Darstellung des jamFactors für einen bestimmten Streckenabschnitt als Wochenzeitdiagramm
+  - Achse Montag 0 Uhr bis Sonntag 24 Uhr lokaler Zeit
+  - Jede Kalenderwoche erhält einen eigenen Graph, der die entsprechenden Werte darstellt
+  - aktuelle Kalenderwoche hat eigene Farbe, die vergangenen 4 Kalenderwochen ebenfalls, sind aber in Transparenz zurückgenommen, alle weiteren Wochen sind grau, dünn und zurückgenommen
+- Aufrufbarkeit der grafischen Darstellung über einen Github-Link
+  - Daten werden automatisch aktualisiert, sobald neue Daten gezogen werden
+  - Graph für jeweiligen Ort per Dropdown-Liste auswählbar, Auswahl änderbar
