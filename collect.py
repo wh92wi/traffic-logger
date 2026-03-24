@@ -3,10 +3,12 @@ import csv
 import os
 import datetime
 import math
+import zoneinfo
 
 API_KEY        = os.environ["HERE_API_KEY"]
 CSV_FILE       = "traffic_log-v2.csv"
 LOCATIONS_FILE = "locations.csv"
+LOCAL_TZ       = zoneinfo.ZoneInfo("Europe/Berlin")
 
 def distance(lat1, lon1, lat2, lon2):
     return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
@@ -24,10 +26,9 @@ def nearest_segment(results, lat, lon):
     return best
 
 def get_segment_endpoints(segment):
-    """Gibt den ersten und letzten Punkt des gesamten Segments zurück"""
-    links  = segment["location"]["shape"]["links"]
-    first  = links[0]["points"][0]
-    last   = links[-1]["points"][-1]
+    links = segment["location"]["shape"]["links"]
+    first = links[0]["points"][0]
+    last  = links[-1]["points"][-1]
     return first, last
 
 def load_locations():
@@ -49,7 +50,8 @@ def collect():
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow([
-                "timestamp", "my_name", "here_name",
+                "timestamp_utc", "timestamp_local",
+                "my_name", "here_name",
                 "segment_length_m",
                 "seg_start_lat", "seg_start_lon",
                 "seg_end_lat", "seg_end_lon",
@@ -81,6 +83,9 @@ def collect():
                     print(f"Keine Daten für {loc['name']}")
                     continue
 
+                now_utc   = datetime.datetime.now(datetime.timezone.utc)
+                now_local = now_utc.astimezone(LOCAL_TZ)
+
                 segment     = nearest_segment(results, loc["lat"], loc["lon"])
                 currentFlow = segment["currentFlow"]
                 first, last = get_segment_endpoints(segment)
@@ -95,7 +100,8 @@ def collect():
                 confidence     = currentFlow["confidence"]
 
                 writer.writerow([
-                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    now_utc.isoformat(),
+                    now_local.isoformat(),
                     loc["name"],
                     here_name,
                     segment_length,
@@ -108,7 +114,7 @@ def collect():
                     jamTendency,
                     round(confidence, 2),
                 ])
-                print(f"{loc['name']} ({here_name}, {segment_length}m): jam={jamFactor}, speed={speed}")
+                print(f"{loc['name']} ({here_name}): jam={jamFactor}, speed={speed}")
 
             except Exception as e:
                 print(f"Fehler bei {loc['name']}: {e}")
