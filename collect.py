@@ -6,7 +6,7 @@ import math
 import zoneinfo
 
 API_KEY        = os.environ["HERE_API_KEY"]
-CSV_FILE       = "traffic_log-v2.csv"
+CSV_FILE       = "traffic_log.csv"
 LOCATIONS_FILE = "locations.csv"
 LOCAL_TZ       = zoneinfo.ZoneInfo("Europe/Berlin")
 
