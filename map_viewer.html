@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HERE Traffic Segment Viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #4f9cf9;
+    --accent2: #f97b4f;
+    --text: #e8eaf0;
+    --text-muted: #7a7f94;
+    --success: #4fbe96;
+    --mono: 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 1000;
+  }
+
+  header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+  }
+
+  textarea#json-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 12px;
+    resize: none;
+    height: 60px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea#json-input:focus {
+    border-color: var(--accent);
+  }
+
+  textarea#json-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  button#render-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.04em;
+  }
+
+  button#render-btn:hover { opacity: 0.88; }
+  button#render-btn:active { transform: scale(0.97); }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #map {
+    flex: 1;
+    background: #191c26;
+  }
+
+  #sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #sidebar-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  #segment-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .segment-item {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .segment-item:hover {
+    background: rgba(79, 156, 249, 0.08);
+  }
+
+  .segment-item.active {
+    background: rgba(79, 156, 249, 0.14);
+    border-left: 3px solid var(--accent);
+  }
+
+  .seg-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 3px;
+  }
+
+  .seg-name {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .seg-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .jam-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+
+  .jam-green  { background: #1a3a2a; color: var(--success); }
+  .jam-yellow { background: #3a2f10; color: #f5c842; }
+  .jam-red    { background: #3a1010; color: #f96060; }
+
+  #status {
+    padding: 6px 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #error-msg {
+    display: none;
+    background: #3a1010;
+    color: #f96060;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-top: 1px solid #5a1010;
+  }
+
+  /* Leaflet dark tiles override */
+  .leaflet-tile { filter: brightness(0.85) saturate(0.7); }
+  .leaflet-control-attribution { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>▶ HERE Segment Viewer</h1>
+  <div class="input-row">
+    <textarea id="json-input" placeholder="HERE API JSON hier einfügen: {&quot;results&quot;:[...]}"></textarea>
+    <button id="render-btn">Karte laden</button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+  <div id="sidebar">
+    <div id="sidebar-header">Segmente</div>
+    <div id="segment-list"><div style="padding:20px;color:var(--text-muted);font-size:12px;">JSON einfügen und „Karte laden" klicken.</div></div>
+    <div id="error-msg"></div>
+    <div id="status">–</div>
+  </div>
+</div>
+
+<script>
+// Leaflet-Karte initialisieren
+const map = L.map('map', { zoomControl: true, preferCanvas: true });
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+map.setView([53.55, 10.00], 14);
+
+// Zustand
+let allLayers = [];
+let allMarkers = [];
+let activeIndex = null;
+
+// Farben für Segmente (rotierend)
+const COLORS = [
+  '#4f9cf9','#f97b4f','#4fbe96','#f5c842',
+  '#c97bf9','#f94f7b','#7bf9c9','#f9c44f',
+  '#7b9ff9','#f97bca','#9ff94f','#f94f4f'
+];
+
+function jamColor(jam) {
+  if (jam < 3)  return 'jam-green';
+  if (jam < 7)  return 'jam-yellow';
+  return 'jam-red';
+}
+
+function clearMap() {
+  allLayers.forEach(l => map.removeLayer(l));
+  allMarkers.forEach(m => map.removeLayer(m));
+  allLayers = [];
+  allMarkers = [];
+  activeIndex = null;
+}
+
+function renderJSON(data) {
+  clearMap();
+  document.getElementById('segment-list').innerHTML = '';
+  document.getElementById('error-msg').style.display = 'none';
+
+  const results = data.results || [];
+  if (!results.length) {
+    showError('Keine Segmente in der JSON gefunden.');
+    return;
+  }
+
+  const bounds = [];
+  const listEl = document.getElementById('segment-list');
+
+  results.forEach((result, ri) => {
+    const desc   = result.location?.description || '(kein Name)';
+    const flow   = result.currentFlow || {};
+    const jam    = flow.jamFactor ?? '–';
+    const speed  = flow.speed != null ? Math.round(flow.speed) : '–';
+    const free   = flow.freeFlow != null ? Math.round(flow.freeFlow) : '–';
+    const links  = result.location?.shape?.links || [];
+    const color  = COLORS[ri % COLORS.length];
+
+    links.forEach((link, li) => {
+      const label = `${ri + 1}.${li + 1}`;
+      const pts   = link.points || [];
+      if (!pts.length) return;
+
+      const latlngs = pts.map(p => [p.lat, p.lng]);
+      latlngs.forEach(p => bounds.push(p));
+
+      // Linie zeichnen
+      const polyline = L.polyline(latlngs, {
+        color: color,
+        weight: 5,
+        opacity: 0.85
+      }).addTo(map);
+
+      // Mittelunkt der Linie für Label
+      const mid = latlngs[Math.floor(latlngs.length / 2)];
+
+      const labelIcon = L.divIcon({
+        className: '',
+        html: `<div style="
+          background:${color};
+          color:#fff;
+          font-family:'Courier New',monospace;
+          font-size:10px;
+          font-weight:700;
+          padding:2px 5px;
+          border-radius:3px;
+          white-space:nowrap;
+          box-shadow:0 1px 4px rgba(0,0,0,0.5);
+          pointer-events:none;
+        ">${label}</div>`,
+        iconAnchor: [0, 0]
+      });
+
+      const marker = L.marker(mid, { icon: labelIcon, interactive: false }).addTo(map);
+
+      // Tooltip beim Hover auf die Linie
+      polyline.bindTooltip(
+        `<b>${label}</b> – ${desc}<br>jam: ${jam} | ${speed}/${free} km/h`,
+        { sticky: true, className: 'tt' }
+      );
+
+      allLayers.push(polyline);
+      allMarkers.push(marker);
+    });
+
+    // Sidebar-Eintrag für das gesamte Result
+    const item = document.createElement('div');
+    item.className = 'segment-item';
+    item.dataset.ri = ri;
+
+    const jc = typeof jam === 'number' ? jamColor(jam) : '';
+    item.innerHTML = `
+      <div class="seg-label" style="color:${color}">${ri + 1} · ${links.length} Link${links.length !== 1 ? 's' : ''}</div>
+      <div class="seg-name">${desc}</div>
+      <div class="seg-meta">
+        ${typeof jam === 'number' ? `<span class="jam-badge ${jc}">jam ${jam.toFixed(1)}</span>` : ''}
+        <span>${speed} km/h</span>
+        <span>freeFlow ${free} km/h</span>
+      </div>
+    `;
+
+    item.addEventListener('click', () => {
+      // Auf Segment zoomen
+      const segLinks = result.location?.shape?.links || [];
+      const segBounds = [];
+      segLinks.forEach(lk => lk.points.forEach(p => segBounds.push([p.lat, p.lng])));
+      if (segBounds.length) map.fitBounds(segBounds, { padding: [60, 60] });
+
+      // Aktiv markieren
+      document.querySelectorAll('.segment-item').forEach(el => el.classList.remove('active'));
+      item.classList.add('active');
+    });
+
+    listEl.appendChild(item);
+  });
+
+  // Karte auf alle Segmente zentrieren
+  if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+
+  // Zähle Links gesamt
+  const totalLinks = results.reduce((s, r) => s + (r.location?.shape?.links?.length || 0), 0);
+  document.getElementById('status').textContent =
+    `${results.length} Segmente · ${totalLinks} Links geladen`;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+  document.getElementById('status').textContent = 'Fehler';
+}
+
+document.getElementById('render-btn').addEventListener('click', () => {
+  const raw = document.getElementById('json-input').value.trim();
+  if (!raw) { showError('Kein JSON eingegeben.'); return; }
+  try {
+    const data = JSON.parse(raw);
+    renderJSON(data);
+  } catch(e) {
+    showError('Ungültiges JSON: ' + e.message);
+  }
+});
+
+// Enter in Textarea = Laden
+document.getElementById('json-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    document.getElementById('render-btn').click();
+  }
+});
+</script>
+</body>
+</html>
