@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verkehrsmonitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0c0e14;--surface:#13161f;--surface2:#1c2030;--border:#242838;--border2:#2e3448;--accent:#5b9cf6;--accent-dim:rgba(91,156,246,0.15);--green:#3ecf8e;--yellow:#f5a623;--red:#f25c5c;--text:#dde2f0;--text-2:#8891aa;--text-3:#4a5068;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;}
+#topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;z-index:1000;}
+#topbar h1{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);white-space:nowrap;}
+.tb-sep{width:1px;height:24px;background:var(--border2);flex-shrink:0;}
+.tb-label{font-size:11px;color:var(--text-2);white-space:nowrap;}
+.tb-input{background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 10px;outline:none;}
+.tb-input:focus{border-color:var(--accent);}
+#api-key-input{width:220px;}#csv-url-input{width:290px;}
+.tb-spacer{flex:1;}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:5px;padding:6px 12px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s;}
+.btn:hover{opacity:.85;}.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--text-2);}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn.danger{background:var(--red);}.btn.sm{padding:3px 9px;font-size:11px;}
+#main{display:flex;flex:1;overflow:hidden;}
+#left-panel{width:50%;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+#mode-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.mode-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-2);border-bottom:2px solid transparent;transition:color .15s,border-color .15s;user-select:none;}
+.mode-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.mode-tab:hover:not(.active){color:var(--text);}
+#map{flex:1;background:var(--bg);min-height:0;}
+#map.drawing{cursor:crosshair!important;}
+#route-toolbar{display:none;background:var(--surface);border-top:1px solid var(--border);padding:9px 13px;flex-shrink:0;gap:7px;align-items:center;flex-wrap:wrap;}
+#route-toolbar.visible{display:flex;}
+.rt-hint{font-size:11px;color:var(--text-2);flex:1;min-width:120px;}
+#waypoint-list{display:none;background:var(--surface2);border-top:1px solid var(--border);padding:5px 13px;flex-shrink:0;max-height:72px;overflow-y:auto;}
+#waypoint-list.visible{display:block;}
+.wp-item{font-family:var(--mono);font-size:10px;color:var(--text-3);padding:1px 0;}
+#seg-select-panel{display:none;background:var(--surface);border-top:1px solid var(--border);max-height:200px;overflow-y:auto;flex-shrink:0;}
+#seg-select-panel.visible{display:block;}
+#seg-select-header{padding:6px 13px;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);display:flex;align-items:center;gap:8px;}
+.seg-sel-item{display:flex;align-items:center;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;transition:background .1s;}
+.seg-sel-item:hover{background:var(--accent-dim);}.seg-sel-item.selected{background:var(--accent-dim);}
+.seg-sel-cb{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+.seg-sel-label{font-family:var(--mono);font-size:10px;color:var(--accent);white-space:nowrap;}
+.seg-sel-name{color:var(--text);flex:1;}.seg-sel-meta{font-size:10px;color:var(--text-2);white-space:nowrap;}
+.jam-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+#locations-panel{display:none;background:var(--surface);border-top:1px solid var(--border);max-height:220px;overflow-y:auto;flex-shrink:0;}
+#locations-panel.visible{display:block;}
+#locations-header{padding:6px 13px;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);display:flex;align-items:center;gap:8px;}
+.loc-item{display:flex;align-items:center;gap:8px;padding:7px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;transition:background .1s;}
+.loc-item:hover{background:var(--accent-dim);}.loc-item.active{background:var(--accent-dim);border-left:2px solid var(--accent);}
+.loc-name{font-weight:600;color:var(--text);flex:1;}.loc-street{font-family:var(--mono);font-size:10px;color:var(--text-3);}
+#csv-bar{display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 13px;align-items:center;gap:10px;flex-shrink:0;}
+#csv-bar.visible{display:flex;}#csv-bar span{font-size:12px;color:var(--text-2);flex:1;}
+#right-panel{width:50%;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+#chart-header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 13px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}
+#chart-header h2{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-2);white-space:nowrap;}
+#segment-select{flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:12px;padding:4px 8px;outline:none;}
+.conf-toggle{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);cursor:pointer;white-space:nowrap;}
+.conf-toggle input{accent-color:var(--accent);cursor:pointer;}
+#chart-area{flex:1;overflow:hidden;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0;}
+.chart-wrap{flex:1;position:relative;min-height:0;}
+#chart-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:13px;gap:8px;}
+#chart-empty .icon{font-size:30px;opacity:.4;}
+#chart-legend{display:flex;gap:10px;flex-wrap:wrap;padding:0 2px;flex-shrink:0;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-2);}
+.legend-line{width:16px;height:3px;border-radius:2px;}
+#add-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center;}
+#add-modal.visible{display:flex;}
+#add-modal-box{background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:24px;width:390px;max-width:90vw;}
+#add-modal-box h3{font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:13px;text-transform:uppercase;letter-spacing:.1em;}
+.modal-field{margin-bottom:10px;}
+.modal-field label{display:block;font-size:11px;color:var(--text-2);margin-bottom:3px;font-weight:500;}
+.modal-field input,.modal-field textarea{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 10px;outline:none;}
+.modal-field input:focus,.modal-field textarea:focus{border-color:var(--accent);}
+.modal-field textarea{resize:vertical;min-height:52px;}
+.modal-info{font-size:10px;color:var(--text-3);margin-bottom:13px;font-family:var(--mono);line-height:1.5;white-space:pre-wrap;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;}
+#statusbar{height:24px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 13px;gap:14px;flex-shrink:0;}
+#statusbar span{font-family:var(--mono);font-size:10px;color:var(--text-3);}
+#status-msg{color:var(--text-2)!important;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.leaflet-tile{filter:brightness(.82) saturate(.65);}
+.leaflet-control-attribution{display:none;}
+.leaflet-popup-content-wrapper{background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:7px;box-shadow:0 4px 20px rgba(0,0,0,.5);font-family:var(--sans);font-size:12px;}
+.leaflet-popup-tip{background:var(--surface2);}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>&#9656; Verkehrsmonitor</h1>
+  <div class="tb-sep"></div>
+  <span class="tb-label">HERE Key:</span>
+  <input type="password" id="api-key-input" class="tb-input" placeholder="API-Key&#x2026;">
+  <div class="tb-sep"></div>
+  <span class="tb-label">CSV-URL:</span>
+  <input type="text" id="csv-url-input" class="tb-input" placeholder="https://raw.githubusercontent.com/USER/REPO/main/traffic_log-v2.csv">
+  <div class="tb-spacer"></div>
+  <button class="btn ghost" onclick="loadCSVData()">&#8634; Daten laden</button>
+</div>
+<div id="main">
+  <div id="left-panel">
+    <div id="mode-tabs">
+      <div class="mode-tab active" data-mode="view" onclick="setMode('view')">&#128205; Gespeicherte Segmente</div>
+      <div class="mode-tab" data-mode="route" onclick="setMode('route')">&#128506; Neue Segmente</div>
+    </div>
+    <div id="map"></div>
+    <div id="route-toolbar">
+      <span class="rt-hint" id="rt-hint">Klicke auf die Karte um den Startpunkt zu setzen.</span>
+      <button class="btn ghost sm" onclick="undoWaypoint()">&#8617; Undo</button>
+      <button class="btn sm" id="btn-calc" onclick="calcRoute()" disabled>Route berechnen</button>
+      <button class="btn danger sm" onclick="resetRoute()">&#10005; Zurücksetzen</button>
+    </div>
+    <div id="waypoint-list"></div>
+    <div id="seg-select-panel">
+      <div id="seg-select-header">
+        <span id="seg-count-label">Segmente auf der Route</span>
+        <div style="flex:1"></div>
+        <button class="btn sm" id="add-selected-btn" onclick="openAddModal()" style="display:none">+ Auswahl zur CSV</button>
+      </div>
+      <div id="seg-select-list"></div>
+    </div>
+    <div id="locations-panel">
+      <div id="locations-header">
+        <span>Gespeicherte Messpunkte</span><div style="flex:1"></div>
+        <button class="btn ghost sm" onclick="loadLocationsCSV()">&#8634;</button>
+      </div>
+      <div id="locations-list"></div>
+    </div>
+    <div id="csv-bar">
+      <span id="csv-bar-msg"></span>
+      <button class="btn sm" onclick="downloadCSV()">&#11015; locations.csv herunterladen</button>
+    </div>
+  </div>
+  <div id="right-panel">
+    <div id="chart-header">
+      <h2>Wochenprofil &#8212; jamFactor</h2>
+      <select id="segment-select" onchange="onSegmentSelect()"><option value="">&#8212; Segment ausw&#228;hlen &#8212;</option></select>
+      <label class="conf-toggle"><input type="checkbox" id="show-confidence" onchange="renderChart()"> Confidence</label>
+    </div>
+    <div id="chart-area">
+      <div id="chart-empty">
+        <div class="icon">&#128202;</div>
+        <div>Segment ausw&#228;hlen oder auf Karte klicken</div>
+        <div style="font-size:11px;margin-top:4px;color:var(--text-3)">Zuerst &#8222;Daten laden&#8220; oben</div>
+      </div>
+      <div class="chart-wrap" id="jam-chart-wrap" style="display:none"><canvas id="jam-chart"></canvas></div>
+      <div class="chart-wrap" id="conf-chart-wrap" style="display:none"><canvas id="conf-chart"></canvas></div>
+      <div id="chart-legend" style="display:none"></div>
+    </div>
+  </div>
+</div>
+<div id="add-modal">
+  <div id="add-modal-box">
+    <h3>Segment zur locations.csv hinzuf&#252;gen</h3>
+    <div class="modal-info" id="modal-seg-info"></div>
+    <div class="modal-field"><label>Name (f&#252;r Dropdown &amp; Diagramm)</label><input type="text" id="modal-name" placeholder="z.B. Diagonal&#8203;stra&#223;e stadteinw&#228;rts"></div>
+    <div class="modal-field"><label>Annotation</label><textarea id="modal-annotation" placeholder="z.B. H&#246;he Hausnummer 18&#8211;26"></textarea></div>
+    <div class="modal-field"><label>Position-ID</label><input type="text" id="modal-pos-id" placeholder="1"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeAddModal()">Abbrechen</button><button class="btn" onclick="confirmAdd()">Hinzuf&#252;gen</button></div>
+  </div>
+</div>
+<div id="statusbar">
+  <span id="status-msg">Bereit. Im Tab &#8222;Neue Segmente&#8220;: Karte anklicken um Route zu zeichnen.</span>
+  <span id="status-locs"></span><span id="status-data"></span>
+</div>
+<script>
+var currentMode='view',waypoints=[],waypointMarkers=[],routePolyline=null;
+var routeSegments=[],selectedSegIds=new Set(),segLayers=[];
+var locationMarkers=[],locationsData=[],trafficData=[];
+var pendingNewEntries=[],activeSegmentName=null;
+var jamChart=null,confChart=null;
+
+var map=L.map('map',{zoomControl:true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+map.setView([53.555,10.006],14);
+map.on('click',function(e){if(currentMode==='route')addWaypoint(e.latlng);});
+
+function apiKey(){return document.getElementById('api-key-input').value.trim();}
+function status(msg){document.getElementById('status-msg').textContent=msg;}
+function jamToColor(jam){if(jam==null)return'#888';if(jam<4)return'#3ecf8e';if(jam<8)return'#f5a623';if(jam<10)return'#f25c5c';return'#888';}
+function getWeekNumber(date){var d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));var y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return[d.getUTCFullYear(),Math.ceil((((d-y)/86400000)+1)/7)];}
+
+function setMode(mode){
+  currentMode=mode;
+  document.querySelectorAll('.mode-tab').forEach(function(t){t.classList.toggle('active',t.dataset.mode===mode);});
+  var isR=mode==='route';
+  document.getElementById('route-toolbar').classList.toggle('visible',isR);
+  document.getElementById('seg-select-panel').classList.toggle('visible',isR&&routeSegments.length>0);
+  document.getElementById('locations-panel').classList.toggle('visible',!isR);
+  document.getElementById('map').classList.toggle('drawing',isR);
+  if(isR){clearLocationMarkers();renderRouteOnMap();}
+  else{document.getElementById('waypoint-list').classList.remove('visible');renderLocationMarkers();}
+}
+
+function addWaypoint(latlng){
+  waypoints.push(latlng);
+  var n=waypoints.length,isFirst=n===1;
+  var icon=L.divIcon({className:'',html:'<div style="background:'+(isFirst?'#3ecf8e':'#5b9cf6')+';color:#fff;font-family:monospace;font-size:10px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.3);">'+n+'</div>',iconSize:[22,22],iconAnchor:[11,11]});
+  var m=L.marker(latlng,{icon:icon,draggable:true}).addTo(map);
+  m.on('drag',function(){updateWaypointLine();});
+  m.on('dragend',function(e){var idx=waypointMarkers.indexOf(m);if(idx>=0)waypoints[idx]=e.target.getLatLng();updateWaypointLine();});
+  waypointMarkers.push(m);updateWaypointLine();updateRouteUI();
+}
+
+function undoWaypoint(){if(!waypoints.length)return;waypoints.pop();map.removeLayer(waypointMarkers.pop());updateWaypointLine();updateRouteUI();}
+
+function resetRoute(){
+  waypoints=[];waypointMarkers.forEach(function(m){map.removeLayer(m);});waypointMarkers=[];
+  if(routePolyline){map.removeLayer(routePolyline);routePolyline=null;}
+  clearSegLayers();routeSegments=[];selectedSegIds.clear();
+  document.getElementById('seg-select-panel').classList.remove('visible');
+  document.getElementById('waypoint-list').classList.remove('visible');
+  document.getElementById('add-selected-btn').style.display='none';
+  updateRouteUI();
+}
+
+function updateWaypointLine(){
+  if(routePolyline){map.removeLayer(routePolyline);routePolyline=null;}
+  if(waypoints.length>=2)routePolyline=L.polyline(waypoints,{color:'#4a5068',weight:2,dashArray:'5 4'}).addTo(map);
+  var wl=document.getElementById('waypoint-list');
+  if(waypoints.length){
+    wl.classList.add('visible');
+    wl.innerHTML=waypoints.map(function(p,i){return'<div class="wp-item">'+(i+1)+'. '+p.lat.toFixed(6)+', '+p.lng.toFixed(6)+'</div>';}).join('');
+  }else wl.classList.remove('visible');
+}
+
+function updateRouteUI(){
+  var n=waypoints.length;
+  document.getElementById('btn-calc').disabled=n<2;
+  var hint=document.getElementById('rt-hint');
+  if(n===0)hint.textContent='Klicke auf die Karte um den Startpunkt zu setzen.';
+  else if(n===1)hint.textContent='Weiteren Punkt setzen (mind. 2 Punkte nötig). Punkte sind verschiebbar.';
+  else hint.textContent=n+' Wegpunkte. Route berechnen oder weitere Punkte hinzufügen.';
+}
+
+async function calcRoute(){
+  var key=apiKey();
+  if(!key){alert('Bitte HERE API-Key eingeben.');return;}
+  if(waypoints.length<2)return;
+  status('Route wird berechnet…');
+  try{
+    var wps=waypoints.map(function(p){return p.lat.toFixed(6)+','+p.lng.toFixed(6);});
+    var origin=wps[0],destination=wps[wps.length-1];
+    var vias=wps.slice(1,-1).map(function(v){return'&via='+v;}).join('');
+    var rj=await(await fetch('https://router.hereapi.com/v8/routes?transportMode=car&origin='+origin+vias+'&destination='+destination+'&return=polyline,summary&apiKey='+key)).json();
+    if(!rj.routes||!rj.routes.length){status('Keine Route gefunden.');return;}
+    var decoded=decodeFlexPolyline(rj.routes[0].sections[0].polyline);
+    var lats=decoded.map(function(p){return p[0];}),lngs=decoded.map(function(p){return p[1];});
+    var minLat=Math.min.apply(null,lats),maxLat=Math.max.apply(null,lats);
+    var minLng=Math.min.apply(null,lngs),maxLng=Math.max.apply(null,lngs);
+    var midLat=(minLat+maxLat)/2,midLng=(minLng+maxLng)/2;
+    var dLat=(maxLat-minLat)*111320,dLng=(maxLng-minLng)*111320*Math.cos(midLat*Math.PI/180);
+    var radius=Math.round(Math.sqrt(dLat*dLat+dLng*dLng)/2+150);
+    if(routePolyline)map.removeLayer(routePolyline);
+    routePolyline=L.polyline(decoded.map(function(p){return[p[0],p[1]];}),{color:'#445',weight:4,opacity:.5,dashArray:'7 5'}).addTo(map);
+    var fj=await(await fetch('https://data.traffic.hereapi.com/v7/flow?in=circle:'+midLat+','+midLng+';r='+radius+'&locationReferencing=shape&apiKey='+key)).json();
+    routeSegments=(fj.results||[]).filter(function(seg){
+      return(seg.location&&seg.location.shape&&seg.location.shape.links||[]).some(function(link){
+        return link.points.some(function(pt){return pointNear(pt.lat,pt.lng,decoded,45);});
+      });
+    });
+    selectedSegIds.clear();clearSegLayers();renderRouteOnMap();renderSegSelectList();
+    document.getElementById('seg-select-panel').classList.add('visible');
+    map.fitBounds(decoded.map(function(p){return[p[0],p[1]];}),{padding:[30,30]});
+    status('Route berechnet \u2013 '+routeSegments.length+' Segmente gefunden.');
+  }catch(e){status('Fehler: '+e.message);console.error(e);}
+}
+
+function decodeFlexPolyline(enc){
+  // HERE Flexible Polyline Encoding
+  // https://github.com/heremaps/flexible-polyline
+  var r=[],i=0,lat=0,lng=0;
+  var header=decodeUnsignedVarint(enc,i);i=header.i;
+  var version=header.v&0xF;
+  if(version!==1){console.error('Unknown flex polyline version: '+version);return r;}
+  var prec=(header.v>>4)&0xF;
+  var thirdDim=(header.v>>8)&0x7;
+  var thirdDimPrec=(header.v>>11)&0xF;
+  var fac=Math.pow(10,prec);
+  while(i<enc.length){
+    var dlat=decodeSignedVarint(enc,i);i=dlat.i;lat+=dlat.v;
+    var dlng=decodeSignedVarint(enc,i);i=dlng.i;lng+=dlng.v;
+    if(thirdDim){var d3=decodeSignedVarint(enc,i);i=d3.i;}
+    r.push([lat/fac,lng/fac]);
+  }
+  return r;
+}
+
+function decodeUnsignedVarint(enc,i){
+  var result=0,shift=0,b;
+  do{
+    b=DECODE_TABLE[enc.charCodeAt(i++)];
+    result|=(b&0x1F)<<shift;shift+=5;
+  }while(b>=0x20);
+  return{v:result,i:i};
+}
+
+function decodeSignedVarint(enc,i){
+  var r=decodeUnsignedVarint(enc,i);
+  var v=r.v;
+  v=(v&1)?~(v>>1):(v>>1);
+  return{v:v,i:r.i};
+}
+
+var DECODE_TABLE=(function(){
+  var t=new Array(128).fill(0);
+  var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  for(var i=0;i<chars.length;i++)t[chars.charCodeAt(i)]=i;
+  return t;
+})();
+
+function pointNear(lat,lng,poly,m){
+  var t=m/111320;
+  return poly.some(function(p){var dl=p[0]-lat,dn=(p[1]-lng)*Math.cos(lat*Math.PI/180);return Math.sqrt(dl*dl+dn*dn)<t;});
+}
+
+function clearSegLayers(){segLayers.forEach(function(l){map.removeLayer(l);});segLayers=[];}
+
+function renderRouteOnMap(){
+  clearSegLayers();
+  var COLS=['#5b9cf6','#f97b4f','#4fbe96','#f5c842','#c97bf9','#f94f7b','#7bf9c9','#f9c44f','#7b9ff9','#f97bca'];
+  routeSegments.forEach(function(seg,i){
+    var links=(seg.location&&seg.location.shape&&seg.location.shape.links)||[];
+    var col=COLS[i%COLS.length],sel=selectedSegIds.has(i);
+    var jam=seg.currentFlow&&seg.currentFlow.jamFactor,desc=(seg.location&&seg.location.description)||'';
+    links.forEach(function(link,li){
+      var pts=link.points.map(function(p){return[p.lat,p.lng];});
+      var poly=L.polyline(pts,{color:sel?'#fff':col,weight:sel?6:4,opacity:sel?1:.8}).addTo(map);
+      poly.on('click',function(){toggleSegment(i);});
+      poly.bindTooltip('<b>'+(i+1)+'.'+(li+1)+'</b> '+desc+'<br>jam: '+(jam!=null?jam.toFixed(1):'--'),{sticky:true});
+      var mid=pts[Math.floor(pts.length/2)];
+      var li_icon=L.divIcon({className:'',html:'<div style="background:'+col+';color:#fff;font-family:monospace;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;">'+(i+1)+'.'+(li+1)+'</div>',iconAnchor:[0,0]});
+      segLayers.push(poly,L.marker(mid,{icon:li_icon,interactive:false}).addTo(map));
+      if(pts.length>=2){
+        var p1=pts[pts.length-2],p2=pts[pts.length-1];
+        var ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0])*180/Math.PI-90;
+        var ai=L.divIcon({className:'',html:'<div style="transform:rotate('+ang+'deg);pointer-events:none;width:14px;height:14px;"><svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,0 13,13 7,9 1,13" fill="'+col+'" stroke="#0c0e14" stroke-width="1.5"/></svg></div>',iconSize:[14,14],iconAnchor:[7,7]});
+        segLayers.push(L.marker(p2,{icon:ai,interactive:false}).addTo(map));
+      }
+    });
+  });
+}
+
+function toggleSegment(i){
+  if(selectedSegIds.has(i))selectedSegIds.delete(i);else selectedSegIds.add(i);
+  renderRouteOnMap();renderSegSelectList();
+  document.getElementById('add-selected-btn').style.display=selectedSegIds.size?'block':'none';
+}
+
+function renderSegSelectList(){
+  var list=document.getElementById('seg-select-list');list.innerHTML='';
+  document.getElementById('seg-count-label').textContent=routeSegments.length+' Segmente \u2013 anklicken zum Ausw\u00e4hlen';
+  routeSegments.forEach(function(seg,i){
+    var jam=seg.currentFlow&&seg.currentFlow.jamFactor,desc=(seg.location&&seg.location.description)||'(kein Name)',len=(seg.location&&seg.location.length)||0,sel=selectedSegIds.has(i);
+    var item=document.createElement('div');item.className='seg-sel-item'+(sel?' selected':'');
+    item.innerHTML='<input type="checkbox" class="seg-sel-cb" '+(sel?'checked':'')+'><div class="jam-dot" style="background:'+jamToColor(jam)+'"></div><span class="seg-sel-label">'+(i+1)+'</span><span class="seg-sel-name">'+desc+'</span><span class="seg-sel-meta">'+len+'m \u00b7 jam '+(jam!=null?jam.toFixed(1):'--')+'</span>';
+    item.addEventListener('click',function(){toggleSegment(i);});list.appendChild(item);
+  });
+}
+
+var modalTargetSegments=[];
+function openAddModal(){
+  if(!selectedSegIds.size)return;
+  modalTargetSegments=[...selectedSegIds].sort(function(a,b){return a-b;});
+  var names=modalTargetSegments.map(function(i){return(routeSegments[i]&&routeSegments[i].location&&routeSegments[i].location.description)||'';}).join(', ');
+  document.getElementById('modal-seg-info').textContent='Segment(e): '+modalTargetSegments.map(function(i){return i+1;}).join(', ')+'\nStra\u00dfe(n): '+names;
+  document.getElementById('modal-name').value='';document.getElementById('modal-annotation').value='';document.getElementById('modal-pos-id').value='1';
+  document.getElementById('add-modal').classList.add('visible');
+}
+function closeAddModal(){document.getElementById('add-modal').classList.remove('visible');}
+function confirmAdd(){
+  var name=document.getElementById('modal-name').value.trim();
+  if(!name){alert('Bitte einen Namen eingeben.');return;}
+  var annotation=document.getElementById('modal-annotation').value.trim();
+  var posId=document.getElementById('modal-pos-id').value.trim()||'1';
+  modalTargetSegments.forEach(function(si,order){
+    var seg=routeSegments[si];
+    var allPts=((seg.location&&seg.location.shape&&seg.location.shape.links)||[]).flatMap(function(l){return l.points;});
+    if(!allPts.length)return;
+    var mid=allPts[Math.floor(allPts.length/2)];
+    var entry={street_name:(seg.location&&seg.location.description)||'',position_id:modalTargetSegments.length>1?posId+'.'+(order+1):posId,annotation:annotation,lat:mid.lat,lon:mid.lng,user_name:name};
+    pendingNewEntries.push(entry);locationsData.push(entry);
+  });
+  closeAddModal();selectedSegIds.clear();document.getElementById('add-selected-btn').style.display='none';
+  renderRouteOnMap();renderSegSelectList();updateLocationsDropdown();
+  document.getElementById('csv-bar').classList.add('visible');
+  document.getElementById('csv-bar-msg').textContent=pendingNewEntries.length+' neue Eintr\u00e4ge \u2013 CSV herunterladen und ins Repository hochladen.';
+  status(locationsData.length+' Messpunkte gesamt.');
+}
+
+async function loadLocationsCSV(){
+  var url=document.getElementById('csv-url-input').value.trim();if(!url)return;
+  var locUrl=url.replace(/[^\/]+$/,'locations.csv');
+  try{
+    var res=await fetch(locUrl);if(!res.ok)throw new Error(res.status);
+    locationsData=parseCSV(await res.text());
+    renderLocationsList();updateLocationsDropdown();
+    if(currentMode==='view')renderLocationMarkers();
+    document.getElementById('status-locs').textContent=locationsData.length+' Messpunkte';
+  }catch(e){status('locations.csv nicht ladbar: '+e.message);}
+}
+
+function parseCSV(text){
+  var lines=text.trim().split('\n').filter(function(l){return l.trim();});
+  if(lines.length<2)return[];
+  var hdr=lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
+  return lines.slice(1).map(function(line){
+    var vals=line.split(',').map(function(v){return v.trim().replace(/^"|"$/g,'');});
+    var obj={};hdr.forEach(function(h,i){obj[h]=vals[i]||'';});return obj;
+  });
+}
+
+function renderLocationsList(){
+  var list=document.getElementById('locations-list');list.innerHTML='';
+  locationsData.forEach(function(loc,i){
+    var name=loc.user_name||loc.street_name;
+    var item=document.createElement('div');item.className='loc-item';
+    item.innerHTML='<div style="flex:1"><div class="loc-name">'+name+'</div><div class="loc-street">'+loc.street_name+' \u00b7 Pos '+loc.position_id+'</div>'+(loc.annotation?'<div style="font-size:11px;color:var(--text-2)">'+loc.annotation+'</div>':'')+'</div><div style="font-family:monospace;font-size:9px;color:var(--text-3)">'+parseFloat(loc.lat||0).toFixed(5)+', '+parseFloat(loc.lon||0).toFixed(5)+'</div>';
+    item.addEventListener('click',function(){document.querySelectorAll('.loc-item').forEach(function(el,j){el.classList.toggle('active',j===i);});map.setView([parseFloat(loc.lat),parseFloat(loc.lon)],17);selectLocationByName(name);});
+    list.appendChild(item);
+  });
+}
+
+function updateLocationsDropdown(){
+  var sel=document.getElementById('segment-select'),cur=sel.value;
+  sel.innerHTML='<option value="">\u2014 Segment ausw\u00e4hlen \u2014</option>';
+  locationsData.forEach(function(loc,i){var name=loc.user_name||loc.street_name;var opt=document.createElement('option');opt.value=i;opt.textContent=name+(loc.annotation?' ('+loc.annotation+')':'');sel.appendChild(opt);});
+  sel.value=cur;
+}
+
+function clearLocationMarkers(){locationMarkers.forEach(function(m){map.removeLayer(m);});locationMarkers=[];}
+function renderLocationMarkers(){
+  clearLocationMarkers();
+  locationsData.forEach(function(loc,i){
+    var name=loc.user_name||loc.street_name;
+    var m=L.circleMarker([parseFloat(loc.lat),parseFloat(loc.lon)],{radius:8,fillColor:'#5b9cf6',color:'#fff',weight:2,fillOpacity:.9}).addTo(map);
+    m.bindTooltip('<b>'+name+'</b><br>'+loc.street_name+(loc.annotation?'<br>'+loc.annotation:''),{sticky:false});
+    m.on('click',function(){document.querySelectorAll('.loc-item').forEach(function(el,j){el.classList.toggle('active',j===i);});selectLocationByName(name);});
+    locationMarkers.push(m);
+  });
+}
+
+function selectLocationByName(name){
+  activeSegmentName=name;
+  var idx=locationsData.findIndex(function(l){return(l.user_name||l.street_name)===name;});
+  if(idx>=0)document.getElementById('segment-select').value=idx;
+  renderChart();
+}
+
+function onSegmentSelect(){
+  var idx=document.getElementById('segment-select').value;if(idx==='')return;
+  var loc=locationsData[idx];activeSegmentName=loc.user_name||loc.street_name;
+  if(currentMode==='view'){map.setView([parseFloat(loc.lat),parseFloat(loc.lon)],17);document.querySelectorAll('.loc-item').forEach(function(el,j){el.classList.toggle('active',j==idx);});}
+  renderChart();
+}
+
+async function loadCSVData(){
+  var url=document.getElementById('csv-url-input').value.trim();if(!url){alert('Bitte CSV-URL eingeben.');return;}
+  status('Lade Daten\u2026');
+  try{
+    var res=await fetch(url);if(!res.ok)throw new Error(res.status);
+    trafficData=parseCSV(await res.text());
+    document.getElementById('status-data').textContent=trafficData.length+' Datenpunkte';
+    await loadLocationsCSV();status('Daten geladen.');
+    if(activeSegmentName)renderChart();
+  }catch(e){status('Fehler: '+e.message);}
+}
+
+function renderChart(){
+  if(!activeSegmentName||!trafficData.length)return;
+  var showConf=document.getElementById('show-confidence').checked;
+  var loc=locationsData.find(function(l){return(l.user_name||l.street_name)===activeSegmentName;});
+  var locName=loc?(loc.user_name||loc.street_name):activeSegmentName;
+  var segData=trafficData.filter(function(r){var n=r.user_name||r.street_name||r.name||'';return n===locName||n===activeSegmentName;});
+  if(!segData.length){showEmpty('Keine Daten f\u00fcr dieses Segment.');return;}
+  var byWeek={};
+  segData.forEach(function(r){
+    var ts=new Date(r.timestamp_local||r.timestamp_utc||r.timestamp);if(isNaN(ts))return;
+    var wn=getWeekNumber(ts),key=wn[0]+'-W'+String(wn[1]).padStart(2,'0');
+    if(!byWeek[key])byWeek[key]=[];
+    byWeek[key].push({ts:ts,jam:parseFloat(r.jamFactor||r.jam_factor||0),conf:parseFloat(r.confidence||0)});
+  });
+  var weekKeys=Object.keys(byWeek).sort();if(!weekKeys.length){showEmpty('Keine auswertbaren Zeitstempel.');return;}
+  var cwn=getWeekNumber(new Date()),curKey=cwn[0]+'-W'+String(cwn[1]).padStart(2,'0');
+  var today=weekKeys.indexOf(curKey);
+  var STEP=10,TICKS=7*24*(60/STEP),DAYS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+  function tsToX(ts){var d=ts.getDay()-1;if(d<0)d=6;return Math.round((d*24*60+ts.getHours()*60+ts.getMinutes())/STEP);}
+  function buildDs(key,field){var a=new Array(TICKS).fill(null);byWeek[key].forEach(function(r){var x=tsToX(r.ts);if(x<TICKS)a[x]=r[field];});return a;}
+  function wCol(key,a){var d=today-weekKeys.indexOf(key);if(key===curKey)return'rgba(91,156,246,'+a+')';if(d===1||d===2)return'rgba(62,207,142,'+(a*(d===2?.85:1))+')';if(d===3)return'rgba(245,166,35,'+(a*.8)+')';if(d===4)return'rgba(242,92,92,'+(a*.8)+')';return'rgba(80,85,100,'+(a*.4)+')';}
+  function wW(key){if(key===curKey)return 2.5;var d=today-weekKeys.indexOf(key);return d>=1&&d<=4?1.8:.8;}
+  document.getElementById('chart-empty').style.display='none';
+  document.getElementById('jam-chart-wrap').style.display='block';
+  document.getElementById('chart-legend').style.display='flex';
+  function mkDs(field){return weekKeys.map(function(key){return{label:key,data:buildDs(key,field),borderColor:wCol(key,key===curKey?1:.75),backgroundColor:'transparent',borderWidth:wW(key),pointRadius:0,tension:.3,spanGaps:true};});}
+  if(jamChart)jamChart.destroy();
+  jamChart=new Chart(document.getElementById('jam-chart'),{type:'line',data:{datasets:mkDs('jam')},options:chartOpts('jamFactor',0,10,TICKS,DAYS,STEP)});
+  if(showConf){
+    document.getElementById('conf-chart-wrap').style.display='block';
+    if(confChart)confChart.destroy();
+    confChart=new Chart(document.getElementById('conf-chart'),{type:'line',data:{datasets:mkDs('conf')},options:chartOpts('Confidence',0,1,TICKS,DAYS,STEP)});
+  }else{document.getElementById('conf-chart-wrap').style.display='none';if(confChart){confChart.destroy();confChart=null;}}
+  renderLegend(weekKeys,curKey,today);
+}
+
+function chartOpts(yLabel,yMin,yMax,TICKS,DAYS,STEP){
+  return{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1c2030',borderColor:'#2e3448',borderWidth:1,titleColor:'#8891aa',bodyColor:'#dde2f0',titleFont:{family:'monospace',size:10},bodyFont:{family:'sans-serif',size:11},
+      callbacks:{title:function(items){var i=items[0].dataIndex,dow=Math.floor(i/(24*60/STEP)),rem=i%(24*60/STEP),h=Math.floor(rem/(60/STEP)),m=(rem%(60/STEP))*STEP;return DAYS[dow]+' '+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');}}}},
+    scales:{
+      x:{type:'linear',min:0,max:TICKS,ticks:{color:'#4a5068',font:{family:'monospace',size:9},maxRotation:0,stepSize:24*(60/STEP),callback:function(v){var d=Math.floor(v/(24*(60/STEP)));return d<DAYS.length?DAYS[d]:''}},grid:{color:'#1c2030'}},
+      y:{min:yMin,max:yMax,ticks:{color:'#4a5068',font:{family:'monospace',size:9}},grid:{color:'#1c2030'},title:{display:true,text:yLabel,color:'#4a5068',font:{family:'monospace',size:9}}}
+    }};
+}
+
+function renderLegend(weekKeys,curKey,today){
+  var leg=document.getElementById('chart-legend');leg.innerHTML='';
+  weekKeys.slice().reverse().forEach(function(key){
+    var d=today-weekKeys.indexOf(key),c;
+    if(key===curKey)c='#5b9cf6';else if(d===1||d===2)c='#3ecf8e';else if(d===3)c='#f5a623';else if(d===4)c='#f25c5c';else c='#505564';
+    var item=document.createElement('div');item.className='legend-item';
+    item.innerHTML='<div class="legend-line" style="background:'+c+'"></div><span>'+key+(key===curKey?' (aktuell)':'')+'</span>';
+    leg.appendChild(item);
+  });
+}
+
+function showEmpty(msg){
+  document.getElementById('chart-empty').style.display='flex';
+  document.getElementById('chart-empty').querySelectorAll('div')[1].textContent=msg;
+  document.getElementById('jam-chart-wrap').style.display='none';
+  document.getElementById('conf-chart-wrap').style.display='none';
+  document.getElementById('chart-legend').style.display='none';
+}
+
+function downloadCSV(){
+  var hdr=['street_name','position_id','annotation','lat','lon','user_name'];
+  var rows=[hdr.join(',')];
+  locationsData.forEach(function(e){rows.push(hdr.map(function(h){return'"'+((e[h]||'').toString().replace(/"/g,'""'))+'"';}).join(','));});
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='locations.csv';a.click();
+}
+
+setMode('view');updateRouteUI();
+</script>
+</body>
+</html>
