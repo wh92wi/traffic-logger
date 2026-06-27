@@ -13608,3 +13608,4 @@ timestamp_utc,timestamp_local,street_name,position_id,annotation,here_name,segme
 2026-06-27T12:50:34.296076+00:00,2026-06-27T14:50:34.296076+02:00,Hammer Landstraße,1,Diagonalstraße Höhe Hausnummer 32,Hammer Landstraße,447.0,53.55097,10.05885,53.55491,10.05749,10.0,7.5,7.5,1.5,,0.99
 2026-06-27T13:00:46.579602+00:00,2026-06-27T15:00:46.579602+02:00,Hammer Landstraße,1,Diagonalstraße Höhe Hausnummer 32,Hammer Landstraße,447.0,53.55097,10.05885,53.55491,10.05749,10.0,7.2,7.2,2.0,,0.99
 2026-06-27T13:10:33.819179+00:00,2026-06-27T15:10:33.819179+02:00,Hammer Landstraße,1,Diagonalstraße Höhe Hausnummer 32,Hammer Landstraße,447.0,53.55097,10.05885,53.55491,10.05749,10.0,8.9,8.9,0.4,,0.96
+2026-06-27T13:20:33.245213+00:00,2026-06-27T15:20:33.245213+02:00,Hammer Landstraße,1,Diagonalstraße Höhe Hausnummer 32,Hammer Landstraße,447.0,53.55097,10.05885,53.55491,10.05749,10.0,7.5,7.5,1.6,,0.97
